@@ -16,19 +16,32 @@
         align-items: baseline;
         grid-gap: 1rem;
       }
+      #color-screen {
+        height: 200px;
+        width: 200px;
+      }
+      .screen-1 {
+        background-color: powderblue;
+      }
+      .screen-2 {
+        background-color: pink;
+      }
     </style>
   </head>
   <body>
-    <h1>Latency Tester</h1>
+    <h1>Visual Latency Tester</h1>
     <p>
-      Find out how many milliseconds of delay there is between the sound's play-start time, and when you hear it.
+      Find out how many milliseconds of delay there is between the color changing, and when you see it.
       <br><br>
 
       <em>Instructions</em><br>
-      Tap spacebar or click the background on beat. The delay will be measured on a trailing average of the last 10 beats.
+      Tap spacebar or click the background every time the color changes. The delay will be measured on a trailing average of the last 10 beats.
     </p>
 
     <button id='toggler-button'>Start</button>
+    <div id='color-screen' class='screen-1'>
+
+    </div>
     <p>
       <div class='grid-x'>
         <label>Current BPM</label>
@@ -110,8 +123,11 @@
         audioBuffer = await loadSound();
 
         while (isRunning) {
-          playSound(audioBuffer);
+          //playSound(audioBuffer);
+          changeColor();
           lastBeatAt = new Date();
+          // TODO: This should only return the difference instead of the whole time
+          // currently it's processing time + delay
           await timeout(currentBpmInMs);
         }
       }
@@ -134,17 +150,38 @@
         player.start(delay);
       }
 
+      function changeColor() {
+        let element = document.getElementById('color-screen');
+        if (element.classList.contains('screen-1')) {
+          // Will this cause flicker?
+          element.classList.add('screen-2');
+          element.classList.remove('screen-1');
+        } else {
+          element.classList.add('screen-1');
+          element.classList.remove('screen-2');
+        }
+      }
+
       function handleUserBeat(e) {
         let userBeatAt = new Date();
+        console.log("Beat : " + lastBeatAt.toISOString());
+        console.log("Click: " + userBeatAt.toISOString());
 
         latency = userBeatAt - lastBeatAt;
-
-        latencies.push(latency);
+        // Handle entries where it looks like the user could have clicked before the beat
+        if (latency < (0.8 * currentBpmInMs)) {
+          latencies.push(latency);
+        } else {
+          //console.log("Looks like this latency is confused: " + latency);
+          let corrected = latency - currentBpmInMs;
+          //console.log("Adding: " + corrected);
+          latencies.push(corrected);
+        }
 
         if (latencies.length > 10) {
           let avg = slidingWindowAverageOf(latencies);
 
-          latencyDisplay.innerHTML = avg;
+          latencyDisplay.innerHTML = avg.toFixed(2);
         }
 
         bpmDetector(e);
@@ -163,7 +200,7 @@
           let avg = slidingWindowAverageOf(bpmIntervals);
           let bpm = 60000 / avg;
 
-          detectedBpm.innerHTML = bpm;
+          detectedBpm.innerHTML = bpm.toFixed(2);
         }
       }
 
